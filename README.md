@@ -120,7 +120,7 @@ And `~/myproject/.feltrc.toml` is:
 node_modules = true
 
 [command]
-hello = "Helloooooooooooooooo"
+hello = "echo Helloooooooooooooooo"
 ```
 
 You can:
