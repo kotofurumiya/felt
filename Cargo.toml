@@ -1,6 +1,6 @@
 [package]
 name = "felt"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Koto Furumiya <kotofurumiya@gmail.com>"]
 repository = "https://github.com/kotofurumiya/felt"
 categories = ["command-line-utilities"]
