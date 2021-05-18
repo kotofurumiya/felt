@@ -18,7 +18,7 @@ cargo install felt
 |:--------------------|:-------:|:---|
 |Windows              | 🚧      |    |
 |macOS(Intel)         | ✅      |    |
-|macOS(Apple Silicon) | ❓      |    |
+|macOS(Apple Silicon) | ✅      |    |
 |Linux                | ✅      |    |
 
 ## Usage
@@ -87,6 +87,18 @@ redis-up = "docker run -it --rm -p 6379:6379 redis"
 
 # felt countfiles
 countfiles = "ls -l | wc -l"
+```
+
+## List all your commands
+
+```
+felt --list
+```
+
+or
+
+```
+felt -l
 ```
 
 ## Local .feltrc.toml

@@ -8,29 +8,73 @@ pub mod toml {
     use toml;
 
     #[derive(Deserialize, Debug, Copy, Clone)]
-    pub struct FeltRcFelt {
+    pub struct FeltRcFeltSection {
         pub root: Option<bool>,
         pub node_modules: Option<bool>,
     }
 
-    impl FeltRcFelt {
+    impl FeltRcFeltSection {
         pub fn is_root(&self) -> bool {
             self.root.unwrap_or(false)
         }
     }
 
-    #[derive(Deserialize, Debug)]
+    #[derive(Deserialize, Debug, Clone)]
+    pub struct FeltRcCommand {
+        pub name: String,
+        pub value: Option<String>,
+    }
+
+    #[derive(Deserialize, Debug, Clone)]
+    pub struct FeltRcCommandSection {
+        pub commands: Vec<FeltRcCommand>,
+        pub toml: Option<toml::value::Table>,
+    }
+
+    impl FeltRcCommandSection {
+        pub fn get(&self, name: &str) -> Option<&FeltRcCommand> {
+            self.commands.iter().find(|c| c.name == name)
+        }
+    }
+
+    #[derive(Deserialize, Debug, Clone)]
     pub struct FeltRc {
-        pub felt: Option<FeltRcFelt>,
-        pub command: Option<toml::value::Table>,
+        pub felt: FeltRcFeltSection,
+        pub command: FeltRcCommandSection,
     }
 
     impl FeltRc {
         pub fn is_root(&self) -> bool {
-            match self.felt {
-                Some(felt) => felt.is_root(),
-                None => false
-            }
+            self.felt.is_root()
+        }
+    }
+
+    #[derive(Deserialize, Debug, Clone)]
+    struct FeltRcToml {
+        felt: FeltRcFeltSection,
+        command: Option<toml::value::Table>,
+    }
+
+    fn toml_to_feltrc(toml: &FeltRcToml) -> FeltRc {
+        let command_toml = toml.command.clone();
+
+        let commands = match command_toml.as_ref() {
+            Some(m) => m
+                .iter()
+                .map(|(key, value)| FeltRcCommand {
+                    name: key.to_string(),
+                    value: value.as_str().map(|v| v.to_string()),
+                })
+                .collect(),
+            None => vec![],
+        };
+
+        FeltRc {
+            felt: toml.felt,
+            command: FeltRcCommandSection {
+                commands,
+                toml: command_toml,
+            },
         }
     }
 
@@ -60,10 +104,11 @@ pub mod toml {
                 home_checked = true;
             }
 
-            // Try to `.feltrc.toml`.
-            // If it success, push FeltRc to vector.
-            let feltrc = load_toml(&file_path);
-            if let Some(rc) = feltrc {
+            // Try to load `.feltrc.toml`.
+            // If success, push FeltRc to vector.
+            let feltrc_toml = load_toml(&file_path);
+            if let Some(rc_toml) = feltrc_toml {
+                let rc = toml_to_feltrc(&rc_toml);
                 let is_root = rc.is_root();
                 feltrc_list.push(rc);
 
@@ -84,35 +129,38 @@ pub mod toml {
 
         // Load `~/.feltrc.toml` finally
         // if we had not trying to load home file.
-        if let Some(toml) = load_toml(&home_file_path) {
-            feltrc_list.push(toml)
+        if let Some(rc_toml) = load_toml(&home_file_path) {
+            let rc = toml_to_feltrc(&rc_toml);
+            feltrc_list.push(rc)
         }
 
         feltrc_list
     }
 
-    pub fn get_command<'a>(rc_list: &'a Vec<FeltRc>, cmd_name: &str) -> Option<&'a str> {
+    pub fn get_all_commands(rc_list: &Vec<FeltRc>) -> Vec<FeltRcCommand> {
+        let mut commands = vec![];
+
         for rc in rc_list {
-            let cmd_sec = match &rc.command {
-                None => continue,
-                Some(sec) => sec,
-            };
+            commands.extend(rc.command.commands.clone())
+        }
 
-            let cmd = match cmd_sec.get(cmd_name) {
-                None => continue,
-                Some(cmd_str) => cmd_str.as_str(),
-            };
+        commands
+    }
 
-            match cmd {
+    pub fn get_command<'a>(rc_list: &'a Vec<FeltRc>, cmd_name: &str) -> Option<&'a FeltRcCommand> {
+        for rc in rc_list {
+            match rc.command.get(cmd_name) {
                 None => continue,
-                Some(cmd) => return Some(cmd),
+                c => return c,
             }
         }
 
         None
     }
 
-    fn load_toml(path: &PathBuf) -> Option<FeltRc> {
+    fn load_toml(path: &PathBuf) -> Option<FeltRcToml> {
+        let path_str = path.as_path().to_str().unwrap_or("");
+
         let file_str = match fs::read_to_string(path) {
             Err(_) => None,
             Ok(s) => Some(s),
@@ -121,7 +169,11 @@ pub mod toml {
         if let Some(s) = file_str {
             return match toml::from_str(&s) {
                 Ok(cfg) => Some(cfg),
-                Err(_) => None,
+                Err(e) => {
+                    eprintln!("[felt][warning] ignoring invalid toml {}", path_str);
+                    eprintln!("{}\n", e);
+                    None
+                }
             };
         }
 
@@ -130,14 +182,9 @@ pub mod toml {
 
     pub fn uses_node_modules(rc_list: &Vec<FeltRc>) -> bool {
         for rc in rc_list {
-            let node_flag = match rc.felt {
-                Some(felt) => felt.node_modules,
-                None => continue,
-            };
-
-            match node_flag {
+            match rc.felt.node_modules {
                 Some(b) => return b,
-                None => continue
+                None => continue,
             };
         }
 
