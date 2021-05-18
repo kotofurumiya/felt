@@ -23,11 +23,11 @@ fn main() {
     // Rest args are used for command args.
     let cmd_args = cli_args.get(2..).unwrap_or(&[]).to_vec();
 
-    // Should find in `node_modules/.bin/` or not.
+    // Should find executables in `node_modules/.bin/` or not.
     let uses_node_modules = feltlib::toml::uses_node_modules(&rc_list);
 
     // Get actual command from `.feltrc.toml` file.
-    // `.feltrc.toml` in current directory is prior to home dirctory's one.
+    // `.feltrc.toml` in current directory is prior to home directory's one.
     let felt_cmd = feltlib::toml::get_command(&rc_list, cmd_name);
 
     // For node_modules

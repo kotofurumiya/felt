@@ -113,6 +113,8 @@ pub mod toml {
     }
 
     fn load_toml(path: &PathBuf) -> Option<FeltRc> {
+        let path_str = path.as_path().to_str().unwrap_or("");
+
         let file_str = match fs::read_to_string(path) {
             Err(_) => None,
             Ok(s) => Some(s),
@@ -121,7 +123,11 @@ pub mod toml {
         if let Some(s) = file_str {
             return match toml::from_str(&s) {
                 Ok(cfg) => Some(cfg),
-                Err(_) => None,
+                Err(e) => {
+                    eprintln!("Warning : ignoring invalid toml {}", path_str);
+                    eprintln!("{}\n", e);
+                    None
+                },
             };
         }
 
